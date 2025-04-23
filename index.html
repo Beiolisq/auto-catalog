@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PapaParse для корректного парсинга CSV -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
   <title>Каталог авто</title>
 </head>
 <body class="bg-gradient-to-b from-purple-800 to-purple-900 min-h-screen p-4 text-white">
@@ -12,50 +14,48 @@
   <div id="root" class="grid gap-4"></div>
 
   <script>
-  const JSON_URL =
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/gviz/tq?gid=0&tqx=out:json";
+    // 1) Скопируйте из "Публикация в Интернете" → Файл → CSV ровно эту ссылку:
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?output=csv";
 
-  fetch(JSON_URL)
-    .then(res => {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.text();
-    })
-    .then(txt => {
-      const m = txt.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/);
-      if (!m) throw new Error("Не найден JSONP-ответ");
-      const json = JSON.parse(m[1]);
-
-      const cols = json.table.cols.map(c => c.label);
-      const rows = json.table.rows.map(r => r.c.map(cell => cell?.v ?? ""));
-      const cars = rows.map(r => Object.fromEntries(r.map((v,i) => [cols[i], v])));
-
-      const root = document.getElementById("root");
-      if (!cars.length) return root.innerText = "Каталог пока пуст.";
-
-      cars.forEach(car => {
-        const title = `${car["Бренд"]} ${car["Модель"]} ${car["Модификация"]}`;
-        root.insertAdjacentHTML("beforeend", `
-          <div class="bg-white/10 rounded-xl p-3 backdrop-blur-md">
-            <div class="font-medium">${title}</div>
-            <div class="text-sm opacity-80">${car["Цвет"]}, ${car["Год выпуска"]}</div>
-            <div class="font-bold mt-1">${car["Цена"]}₸</div>
-            <button onclick='choose(${JSON.stringify(car)})' class="mt-2 w-full bg-green-500 hover:bg-green-600 text-sm py-2 rounded-md">
-              Выбрать
-            </button>
-          </div>
-        `);
-      });
-    })
-    .catch(err => {
-      console.error(err);
-      document.getElementById("root").innerText = "Не удалось загрузить каталог.";
+    // 2) Парсим CSV через PapaParse
+    Papa.parse(CSV_URL, {
+      download: true,
+      header: true,       // первая строка — заголовки
+      skipEmptyLines: true,
+      complete: ({data}) => {
+        const root = document.getElementById("root");
+        if (!data.length) {
+          root.innerText = "Каталог пуст.";
+          return;
+        }
+        // отрисовываем карточки
+        data.forEach(car => {
+          const title = `${car["Бренд"]} ${car["Модель"]} ${car["Модификация"]}`;
+          root.insertAdjacentHTML("beforeend", `
+            <div class="bg-white/10 rounded-xl p-3 backdrop-blur-md">
+              <div class="font-medium">${title}</div>
+              <div class="text-sm opacity-80">${car["Цвет"]}, ${car["Год выпуска"]}</div>
+              <div class="font-bold mt-1">${car["Цена"]}₸</div>
+              <button
+                class="mt-2 w-full bg-green-500 hover:bg-green-600 text-sm py-2 rounded-md"
+                onclick='choose(${JSON.stringify(car)})'
+              >Выбрать</button>
+            </div>
+          `);
+        });
+      },
+      error: err => {
+        console.error(err);
+        document.getElementById("root").innerText = "Не удалось загрузить каталог.";
+      }
     });
 
-  function choose(car) {
-    Telegram.WebApp.sendData(JSON.stringify(car));
-    Telegram.WebApp.close();
-  }
-  Telegram.WebApp.expand();
-</script>
+    // 3) При выборе отправляем данные боту
+    function choose(car) {
+      Telegram.WebApp.sendData(JSON.stringify(car));
+      Telegram.WebApp.close();
+    }
+    Telegram.WebApp.expand();
+  </script>
 </body>
 </html>
