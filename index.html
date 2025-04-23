@@ -12,33 +12,31 @@
   <div id="root" class="grid gap-4"></div>
 
   <script>
-    // Прямая ссылка на CSV-выгрузку вашей таблицы (скопируйте из "Публикация в интернете" → Файл → CSV)
+    // 1) Сюда ваш настоящий Spreadsheet ID + gid
     const JSON_URL =
-  "https://docs.google.com/spreadsheets/d/1cf9d7tD14fz9-sjjl-2bZCqUgu33lwWWkT1lup5vSOc0/gviz/tq?gid=0&tqx=out:json";
-    // Простой CSV→JSON парсер
-    function parseCSV(text) {
-      const [headerLine, ...lines] = text.trim().split("\n");
-      const headers = headerLine.split(",");
-      return lines.map(line => {
-        const cols = line.split(",");
-        return headers.reduce((obj, h, i) => {
-          obj[h.trim()] = (cols[i]||"").trim();
-          return obj;
-        }, {});
-      });
-    }
+      "https://docs.google.com/spreadsheets/d/1cf9d7tD14fz9-sjjl-2bZCqUgu33lwWWkT1lup5vSOc0/gviz/tq?gid=0&tqx=out:json";
 
-    // Загрузка CSV и рендер карточек
-    fetch(CSV_URL)
-      .then(res => {
-        if (!res.ok) throw new Error("Ошибка загрузки CSV: " + res.status);
-        return res.text();
-      })
-      .then(csv => {
-        const cars = parseCSV(csv);
+    // 2) Загружаем JSONP и парсим
+    fetch(JSON_URL)
+      .then(r => r.text())
+      .then(txt => {
+        // Выделяем JSON из обёртки google.visualization.Query.setResponse(...)
+        const jsonStr = txt.match(/setResponse\(([\s\S]+)\)/)[1];
+        const json = JSON.parse(jsonStr);
+
+        // 3) Извлекаем колонки (заголовки) и строки
+        const cols = json.table.cols.map(c => c.label);
+        const rows = json.table.rows.map(r => r.c.map(cell => cell?.v ?? ""));
+
+        // 4) Собираем массив объектов [{Бренд: "...", Модель: "...", ...}, ...]
+        const cars = rows.map(row =>
+          Object.fromEntries(row.map((v, i) => [cols[i], v]))
+        );
+
+        // 5) Рендерим карточки
         const root = document.getElementById("root");
-        if (cars.length === 0) {
-          root.innerText = "Каталог пуст.";
+        if (!cars.length) {
+          root.innerText = "Каталог пока пуст.";
           return;
         }
         cars.forEach(car => {
@@ -63,12 +61,13 @@
         document.getElementById("root").innerText = "Не удалось загрузить каталог.";
       });
 
+    // 6) При выборе отправляем данные в бота
     function choose(car) {
       Telegram.WebApp.sendData(JSON.stringify(car));
       Telegram.WebApp.close();
     }
 
-    // Разворачиваем Web App на весь экран
+    // Разворачиваем Web App во весь экран
     Telegram.WebApp.expand();
   </script>
 </body>
