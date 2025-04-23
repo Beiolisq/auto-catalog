@@ -12,63 +12,50 @@
   <div id="root" class="grid gap-4"></div>
 
   <script>
-    // 1) Сюда ваш настоящий Spreadsheet ID + gid
   const JSON_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/gviz/tq?gid=0&tqx=out:json";
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/gviz/tq?gid=0&tqx=out:json";
 
-    // 2) Загружаем JSONP и парсим
-    fetch(JSON_URL)
-      .then(r => r.text())
-      .then(txt => {
-        // Выделяем JSON из обёртки google.visualization.Query.setResponse(...)
-        const jsonStr = txt.match(/setResponse\(([\s\S]+)\)/)[1];
-        const json = JSON.parse(jsonStr);
+  fetch(JSON_URL)
+    .then(res => {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.text();
+    })
+    .then(txt => {
+      const m = txt.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/);
+      if (!m) throw new Error("Не найден JSONP-ответ");
+      const json = JSON.parse(m[1]);
 
-        // 3) Извлекаем колонки (заголовки) и строки
-        const cols = json.table.cols.map(c => c.label);
-        const rows = json.table.rows.map(r => r.c.map(cell => cell?.v ?? ""));
+      const cols = json.table.cols.map(c => c.label);
+      const rows = json.table.rows.map(r => r.c.map(cell => cell?.v ?? ""));
+      const cars = rows.map(r => Object.fromEntries(r.map((v,i) => [cols[i], v])));
 
-        // 4) Собираем массив объектов [{Бренд: "...", Модель: "...", ...}, ...]
-        const cars = rows.map(row =>
-          Object.fromEntries(row.map((v, i) => [cols[i], v]))
-        );
+      const root = document.getElementById("root");
+      if (!cars.length) return root.innerText = "Каталог пока пуст.";
 
-        // 5) Рендерим карточки
-        const root = document.getElementById("root");
-        if (!cars.length) {
-          root.innerText = "Каталог пока пуст.";
-          return;
-        }
-        cars.forEach(car => {
-          const title = `${car["Бренд"]} ${car["Модель"]} ${car["Модификация"]}`;
-          root.insertAdjacentHTML("beforeend", `
-            <div class="bg-white/10 rounded-xl p-3 backdrop-blur-md">
-              <div class="font-medium">${title}</div>
-              <div class="text-sm opacity-80">${car["Цвет"]}, ${car["Год выпуска"]}</div>
-              <div class="font-bold mt-1">${car["Цена"]}₸</div>
-              <button
-                class="mt-2 w-full bg-green-500 hover:bg-green-600 text-sm py-2 rounded-md"
-                onclick='choose(${JSON.stringify(car)})'
-              >
-                Выбрать
-              </button>
-            </div>
-          `);
-        });
-      })
-      .catch(err => {
-        console.error(err);
-        document.getElementById("root").innerText = "Не удалось загрузить каталог.";
+      cars.forEach(car => {
+        const title = `${car["Бренд"]} ${car["Модель"]} ${car["Модификация"]}`;
+        root.insertAdjacentHTML("beforeend", `
+          <div class="bg-white/10 rounded-xl p-3 backdrop-blur-md">
+            <div class="font-medium">${title}</div>
+            <div class="text-sm opacity-80">${car["Цвет"]}, ${car["Год выпуска"]}</div>
+            <div class="font-bold mt-1">${car["Цена"]}₸</div>
+            <button onclick='choose(${JSON.stringify(car)})' class="mt-2 w-full bg-green-500 hover:bg-green-600 text-sm py-2 rounded-md">
+              Выбрать
+            </button>
+          </div>
+        `);
       });
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById("root").innerText = "Не удалось загрузить каталог.";
+    });
 
-    // 6) При выборе отправляем данные в бота
-    function choose(car) {
-      Telegram.WebApp.sendData(JSON.stringify(car));
-      Telegram.WebApp.close();
-    }
-
-    // Разворачиваем Web App во весь экран
-    Telegram.WebApp.expand();
-  </script>
+  function choose(car) {
+    Telegram.WebApp.sendData(JSON.stringify(car));
+    Telegram.WebApp.close();
+  }
+  Telegram.WebApp.expand();
+</script>
 </body>
 </html>
