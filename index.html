@@ -1,1 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Каталог авто</title>
+
+  <!-- Telegram SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Tailwind через CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-b from-purple-800 to-purple-900 min-h-screen p-4 text-white">
+  <h1 class="text-2xl font-semibold mb-4">Выберите автомобиль</h1>
+
+  <div id="root" class="grid gap-4"></div>
+
+  <script>
+    const cars = [
+      {id:1, brand:'Toyota', model:'Camry', img:'https://via.placeholder.com/300', price:'18 000 000 ₸'},
+      {id:2, brand:'Toyota', model:'Corolla', img:'https://via.placeholder.com/300', price:'13 500 000 ₸'}
+    ];
+
+    const root = document.getElementById('root');
+    cars.forEach(c => {
+      root.insertAdjacentHTML('beforeend', `
+        <div class="bg-white/10 rounded-xl p-3 backdrop-blur-md">
+          <img src="${c.img}" class="rounded-lg mb-2 w-full aspect-square object-cover">
+          <div class="font-medium">${c.brand} ${c.model}</div>
+          <div class="text-sm opacity-80 mb-3">${c.price}</div>
+          <button class="w-full bg-green-500 hover:bg-green-600 text-sm py-2 rounded-md"
+                  onclick='choose(${JSON.stringify(c)})'>
+            Выбрать
+          </button>
+        </div>
+      `);
+    });
+
+    function choose(car){
+      Telegram.WebApp.sendData(JSON.stringify(car)); // отправляем в бота
+      Telegram.WebApp.close();                       // сворачиваем витрину
+    }
+
+    Telegram.WebApp.expand(); // делаем полноэкранно
+  </script>
+</body>
+</html>
 
