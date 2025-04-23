@@ -1,65 +1,51 @@
-<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <title>Каталог авто</title>
-</head>
-<body class="bg-gradient-to-b from-purple-800 to-purple-900 min-h-screen p-4 text-white">
-  <h1 class="text-2xl font-semibold mb-4">Каталог</h1>
-  <div id="root" class="grid gap-4"></div>
+<script>
+  const SPREADSHEET_ID = '2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw';  // <- ваш настоящий ID
+  const CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=0`;
 
-  <script>
-    // *** Вставьте сюда ваш ID таблицы ***
-    const SPREADSHEET_ID = 'ВАШ_SPREADSHEET_ID';
-    // CSV-экспорт первого листа (gid=0)
-    const CSV_URL = `https://docs.google.com/spreadsheets/d/${2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw}/export?format=csv&gid=0`;
+  function parseCSV(text) {
+    const [headerLine, ...lines] = text.trim().split('\n');
+    const headers = headerLine.split(',');
+    return lines.map(line => {
+      const cols = line.split(',');
+      const obj = {};
+      headers.forEach((h, i) => obj[h.trim()] = cols[i]?.trim() ?? '');
+      return obj;
+    });
+  }
 
-    // Утилитарный парсер CSV → массив объектов
-    function parseCSV(text) {
-      const [headerLine, ...lines] = text.trim().split('\n');
-      const headers = headerLine.split(',');
-      return lines.map(line => {
-        const cols = line.split(',');
-        const obj = {};
-        headers.forEach((h, i) => obj[h.trim()] = cols[i].trim());
-        return obj;
+  fetch(CSV_URL)
+    .then(r => {
+      if (!r.ok) throw new Error(`Ошибка загрузки CSV: ${r.status}`);
+      return r.text();
+    })
+    .then(csv => {
+      const cars = parseCSV(csv);
+      const root = document.getElementById('root');
+      cars.forEach(car => {
+        const title = `${car['Бренд']} ${car['Модель']} ${car['Модификация']}`;
+        root.insertAdjacentHTML('beforeend', `
+          <div class="bg-white/10 rounded-xl p-3 backdrop-blur-md">
+            <div class="font-medium">${title}</div>
+            <div class="text-sm opacity-80">${car['Цвет']}, ${car['Год выпуска']}</div>
+            <div class="font-bold mt-1">${car['Цена']}₸</div>
+            <button
+              class="mt-2 w-full bg-green-500 hover:bg-green-600 text-sm py-2 rounded-md"
+              onclick='choose(${JSON.stringify(car)})'
+            >
+              Выбрать
+            </button>
+          </div>
+        `);
       });
-    }
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById('root').innerText = 'Не удалось загрузить каталог.';
+    });
 
-    fetch(CSV_URL)
-      .then(r => r.text())
-      .then(csv => {
-        const cars = parseCSV(csv);
-        const root = document.getElementById('root');
-
-        cars.forEach(car => {
-          // Собираем полное имя и цену
-          const title = `${car['Бренд']} ${car['Модель']} ${car['Модификация']}`;
-          root.insertAdjacentHTML('beforeend', `
-            <div class="bg-white/10 rounded-xl p-3 backdrop-blur-md">
-              <div class="font-medium">${title}</div>
-              <div class="text-sm opacity-80">${car['Цвет']}, ${car['Год выпуска']}</div>
-              <div class="font-bold mt-1">${car['Цена']}₸</div>
-              <button
-                class="mt-2 w-full bg-green-500 hover:bg-green-600 text-sm py-2 rounded-md"
-                onclick='choose(${JSON.stringify(car)})'
-              >
-                Выбрать
-              </button>
-            </div>
-          `);
-        });
-      })
-      .catch(console.error);
-
-    function choose(car){
-      Telegram.WebApp.sendData(JSON.stringify(car));
-      Telegram.WebApp.close();
-    }
-    Telegram.WebApp.expand();
-  </script>
-</body>
-</html>
+  function choose(car) {
+    Telegram.WebApp.sendData(JSON.stringify(car));
+    Telegram.WebApp.close();
+  }
+  Telegram.WebApp.expand();
+</script>
