@@ -13,8 +13,8 @@
 
   <script>
     // Прямая ссылка на CSV-выгрузку вашей таблицы (скопируйте из "Публикация в интернете" → Файл → CSV)
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?gid=0&single=true&output=csv"
-
+    const JSON_URL =
+  "https://docs.google.com/spreadsheets/d/1cf9d7tD14fz9-sjjl-2bZCqUgu33lwWWkT1lup5vSOc0/gviz/tq?gid=0&tqx=out:json";
     // Простой CSV→JSON парсер
     function parseCSV(text) {
       const [headerLine, ...lines] = text.trim().split("\n");
