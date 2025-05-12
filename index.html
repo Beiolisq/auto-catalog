@@ -9,45 +9,47 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
-
-  <style>
-    /* чуть более тёмный градиент под текст заголовка */
-    .header-gradient {
-      background: linear-gradient(135deg, rgba(124,58,237,0.85), rgba(168,85,247,0.85));
-    }
-  </style>
 </head>
 <body class="min-h-screen bg-gradient-to-b from-purple-800 to-purple-900 text-white">
 
   <!-- Заголовок -->
-  <header class="header-gradient sticky top-0 z-10 px-4 py-4">
+  <header class="sticky top-0 z-10 bg-purple-900/80 backdrop-blur px-4 py-4">
     <h1 class="text-3xl font-bold">Каталог автомобилей</h1>
-    <p class="text-sm opacity-80 mt-1">Выберите машину и нажмите &laquo;Выбрать&raquo;</p>
-    <!-- Поиск по бренду/модели -->
-    <input
-      id="search"
-      type="text"
-      placeholder="Поиск марки или модели..."
-      class="mt-3 w-full rounded-lg bg-white/20 placeholder-white/70 text-white px-4 py-2 focus:outline-none focus:bg-white/30"
-    />
+    <div class="mt-4 flex flex-col sm:flex-row sm:space-x-4 space-y-2 sm:space-y-0">
+      <!-- Фильтр по бренду -->
+      <select id="brandFilter"
+              class="w-full sm:w-1/3 bg-white/20 placeholder-white/70 text-white px-4 py-2 rounded-lg focus:outline-none">
+        <option value="">Все марки</option>
+      </select>
+      <!-- Фильтр по модели -->
+      <select id="modelFilter"
+              class="w-full sm:w-1/3 bg-white/20 placeholder-white/70 text-white px-4 py-2 rounded-lg focus:outline-none">
+        <option value="">Все модели</option>
+      </select>
+      <!-- Поиск по тексту -->
+      <input id="search"
+             type="text"
+             placeholder="Поиск..."
+             class="w-full sm:flex-1 bg-white/20 placeholder-white/70 text-white px-4 py-2 rounded-lg focus:outline-none"/>
+    </div>
   </header>
 
-  <!-- Контейнер для карточек -->
+  <!-- Контейнер карточек -->
   <main class="p-4">
     <div id="root" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
   </main>
 
   <script>
-    // Скопируйте из "Публикация в интернете" → Файл → CSV ровно эту ссылку
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?output=csv";
 
-    // Парсим CSV
+    // Загрузим и спарсим CSV
     Papa.parse(CSV_URL, {
       download: true,
       header: true,
       skipEmptyLines: true,
       complete: ({data}) => {
-        window.carsData = data;      // сохраняем для поиска
+        window.carsData = data;
+        populateBrandFilter(data);
         renderCards(data);
       },
       error: err => {
@@ -56,12 +58,12 @@
       }
     });
 
-    // Функция рендера карточек
+    // Рендер карточек
     function renderCards(cars) {
       const root = document.getElementById("root");
-      root.innerHTML = "";  // очистка
+      root.innerHTML = "";
       if (!cars.length) {
-        root.innerHTML = `<p class="col-span-full text-center text-lg opacity-70">Каталог пуст.</p>`;
+        root.innerHTML = `<p class="col-span-full text-center text-lg opacity-70">Ничего не найдено.</p>`;
         return;
       }
       cars.forEach(car => {
@@ -86,15 +88,52 @@
       });
     }
 
-    // Поиск в таблице
-    document.getElementById("search").addEventListener("input", e => {
-      const q = e.target.value.trim().toLowerCase();
-      const filtered = window.carsData.filter(car =>
-        car["Бренд"].toLowerCase().includes(q) ||
-        car["Модель"].toLowerCase().includes(q)
+    // Заполнить фильтр брендов
+    function populateBrandFilter(cars) {
+      const brands = Array.from(new Set(cars.map(c => c["Бренд"]))).sort();
+      const bf = document.getElementById("brandFilter");
+      brands.forEach(b => {
+        bf.insertAdjacentHTML("beforeend", `<option value="${b}">${b}</option>`);
+      });
+    }
+
+    // Заполнить фильтр моделей по выбранному бренду
+    function populateModelFilter(brand) {
+      const mf = document.getElementById("modelFilter");
+      mf.innerHTML = `<option value="">Все модели</option>`;
+      if (!brand) return;
+      const models = Array.from(new Set(
+        window.carsData
+          .filter(c => c["Бренд"] === brand)
+          .map(c => c["Модель"])
+      )).sort();
+      models.forEach(m => {
+        mf.insertAdjacentHTML("beforeend", `<option value="${m}">${m}</option>`);
+      });
+    }
+
+    // Применить все фильтры и поиск
+    function applyFilters() {
+      const brand = document.getElementById("brandFilter").value;
+      const model = document.getElementById("modelFilter").value;
+      const q = document.getElementById("search").value.trim().toLowerCase();
+      let filtered = window.carsData;
+      if (brand) filtered = filtered.filter(c => c["Бренд"] === brand);
+      if (model) filtered = filtered.filter(c => c["Модель"] === model);
+      if (q) filtered = filtered.filter(c =>
+        c["Бренд"].toLowerCase().includes(q) ||
+        c["Модель"].toLowerCase().includes(q)
       );
       renderCards(filtered);
+    }
+
+    // События изменения фильтров
+    document.getElementById("brandFilter").addEventListener("change", e => {
+      populateModelFilter(e.target.value);
+      applyFilters();
     });
+    document.getElementById("modelFilter").addEventListener("change", applyFilters);
+    document.getElementById("search").addEventListener("input", applyFilters);
 
     // Отправка выбора боту
     function choose(car) {
