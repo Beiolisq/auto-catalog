@@ -11,9 +11,8 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
 
   <style>
-    /* плавный скролл */
     main { scroll-behavior: smooth; }
-    /* стили модалки */
+    /* Галерея-модалка */
     #galleryModal.hidden { display: none; }
     #galleryModal {
       display: flex;
@@ -25,29 +24,23 @@
       z-index: 50;
     }
     #galleryModal img {
-      max-width: 90%;
-      max-height: 90%;
-      border-radius: 0.5rem;
+      max-width: 90%; max-height: 90%;
+      border-radius: .5rem;
       box-shadow: 0 0 15px rgba(0,0,0,0.5);
       cursor: pointer;
     }
     #galleryClose {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      font-size: 2rem;
-      color: #fff;
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      line-height: 1;
+      position: absolute; top: 1rem; right: 1rem;
+      font-size: 2rem; color: #fff;
+      background: transparent; border: none;
+      cursor: pointer; line-height: 1;
     }
   </style>
 </head>
 <body class="flex flex-col h-screen bg-gradient-to-b from-purple-800 to-purple-900 text-white">
 
   <!-- HEADER -->
-  <header class="sticky top-0 bg-purple-900/90 backdrop-blur px-4 py-4 z-50">
+  <header class="sticky top-0 bg-purple-900/90 backdrop-blur px-4 py-4 z-40">
     <h1 class="text-3xl font-bold">Каталог автомобилей</h1>
     <div class="mt-4 flex flex-col sm:flex-row sm:space-x-4 space-y-2 sm:space-y-0">
       <select id="brandFilter" class="w-full sm:w-1/3 bg-white/30 text-white px-4 py-2 rounded-lg">
@@ -56,12 +49,8 @@
       <select id="modelFilter" class="w-full sm:w-1/3 bg-white/30 text-white px-4 py-2 rounded-lg">
         <option value="">Все модели</option>
       </select>
-      <input
-        id="search"
-        type="text"
-        placeholder="Поиск..."
-        class="w-full sm:flex-1 bg-white/30 text-white px-4 py-2 rounded-lg"
-      />
+      <input id="search" type="text" placeholder="Поиск..."
+             class="w-full sm:flex-1 bg-white/30 text-white px-4 py-2 rounded-lg"/>
     </div>
   </header>
 
@@ -70,25 +59,22 @@
     <div id="root" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
   </main>
 
-  <!-- Простая галерея-модалка -->
+  <!-- Галерея-модалка -->
   <div id="galleryModal" class="hidden">
     <button id="galleryClose">×</button>
-    <img id="galleryImg" src="" alt="Gallery"/>
+    <img id="galleryImg" src="" alt="Фото"/>
   </div>
 
   <script>
-    // 1) Вставьте сюда вашу CSV-ссылку из «Файл → Публикация в интернете»
-    const CSV_URL =
-      "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?gid=0&single=true&output=csv";
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?gid=0&single=true&output=csv";
 
     Papa.parse(CSV_URL, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
+      download: true, header: true, skipEmptyLines: true,
       complete: ({ data }) => {
         window.carsData = data;
         populateBrandFilter(data);
         renderCards(data);
+        attachPhotoHandlers();  // <- вешаем клики после отрисовки
       },
       error: err => {
         console.error("Ошибка CSV:", err);
@@ -107,8 +93,7 @@
         const vin   = car["VIN"];
         const title = `${car["Бренд"]} ${car["Модель"]} ${car["Модификация"]}`;
         const price = `${car["Цена"]}₸`;
-
-        // 2) Собираем Google Drive ID нужных фото
+        // собираем DRIVE-ссылки
         const urls = [1,2,4,5,8]
           .map(i => car[`Photo${i}ID`])
           .filter(id => id)
@@ -126,12 +111,12 @@
               <div class="text-xl font-bold">${price}</div>
               <div class="space-x-2">
                 <button
-                  onclick='showGallery(${JSON.stringify(urls)})'
-                  class="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-4 py-1"
+                  class="photo-btn bg-blue-500 hover:bg-blue-600 text-white rounded-full px-4 py-1"
+                  data-urls='${JSON.stringify(urls)}'
                 >Фото</button>
                 <button
-                  onclick='choose(${JSON.stringify(car)})'
                   class="bg-green-500 hover:bg-green-600 text-white rounded-full px-4 py-1"
+                  onclick='choose(${JSON.stringify(car)})'
                 >Выбрать</button>
               </div>
             </div>
@@ -140,48 +125,16 @@
       });
     }
 
-    // фильтры
-    function populateBrandFilter(cars) {
-      const bf = document.getElementById("brandFilter");
-      Array.from(new Set(cars.map(c => c["Бренд"])))
-           .sort()
-           .forEach(b => bf.insertAdjacentHTML("beforeend",
-             `<option value="${b}">${b}</option>`
-           ));
-    }
-    function populateModelFilter(brand) {
-      const mf = document.getElementById("modelFilter");
-      mf.innerHTML = `<option value="">Все модели</option>`;
-      if (!brand) return;
-      Array.from(new Set(
-        window.carsData.filter(c => c["Бренд"]===brand).map(c=>c["Модель"])
-      )).sort()
-        .forEach(m => mf.insertAdjacentHTML("beforeend",
-          `<option value="${m}">${m}</option>`
-        ));
-    }
-    function applyFilters() {
-      let f = window.carsData;
-      const b = document.getElementById("brandFilter").value;
-      const m = document.getElementById("modelFilter").value;
-      const q = document.getElementById("search").value.trim().toLowerCase();
-      if (b) f = f.filter(c=>c["Бренд"]===b);
-      if (m) f = f.filter(c=>c["Модель"]===m);
-      if (q) f = f.filter(c=>
-        c["Бренд"].toLowerCase().includes(q) ||
-        c["Модель"].toLowerCase().includes(q)
-      );
-      renderCards(f);
+    function attachPhotoHandlers() {
+      document.querySelectorAll(".photo-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const urls = JSON.parse(btn.getAttribute("data-urls"));
+          showGallery(urls);
+        });
+      });
     }
 
-    document.getElementById("brandFilter").addEventListener("change", e=>{
-      populateModelFilter(e.target.value);
-      applyFilters();
-    });
-    document.getElementById("modelFilter").addEventListener("change", applyFilters);
-    document.getElementById("search").addEventListener("input", applyFilters);
-
-    // открытие галереи
+    // простая галерея
     function showGallery(urls) {
       if (!urls.length) return;
       let idx = 0;
@@ -202,13 +155,45 @@
       };
     }
 
-    // отправка выбора
+    // остальные фильтры/поиск
+    function populateBrandFilter(cars) {
+      const bf = document.getElementById("brandFilter");
+      Array.from(new Set(cars.map(c=>c["Бренд"]))).sort()
+           .forEach(b=> bf.insertAdjacentHTML("beforeend", `<option value="${b}">${b}</option>`));
+    }
+    function populateModelFilter(brand) {
+      const mf = document.getElementById("modelFilter");
+      mf.innerHTML = `<option value="">Все модели</option>`;
+      if (!brand) return;
+      Array.from(new Set(
+        window.carsData.filter(c=>c["Бренд"]===brand).map(c=>c["Модель"])
+      )).sort().forEach(m=> mf.insertAdjacentHTML("beforeend", `<option value="${m}">${m}</option>`));
+    }
+    function applyFilters() {
+      let f = window.carsData;
+      const b=document.getElementById("brandFilter").value;
+      const m=document.getElementById("modelFilter").value;
+      const q=document.getElementById("search").value.trim().toLowerCase();
+      if(b) f=f.filter(c=>c["Бренд"]===b);
+      if(m) f=f.filter(c=>c["Модель"]===m);
+      if(q) f=f.filter(c=>
+        c["Бренд"].toLowerCase().includes(q) ||
+        c["Модель"].toLowerCase().includes(q)
+      );
+      renderCards(f);
+      attachPhotoHandlers();
+    }
+    document.getElementById("brandFilter").addEventListener("change", e=>{
+      populateModelFilter(e.target.value);
+      applyFilters();
+    });
+    document.getElementById("modelFilter").addEventListener("change", applyFilters);
+    document.getElementById("search").addEventListener("input", applyFilters);
+
     function choose(car) {
       Telegram.WebApp.sendData(JSON.stringify(car));
       Telegram.WebApp.close();
     }
-
-    // разворачиваем WebApp
     Telegram.WebApp.expand();
   </script>
 </body>
