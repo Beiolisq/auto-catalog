@@ -18,7 +18,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/js/lightbox.min.js"></script>
 
   <style>
-    /* чтобы при открытии модалки контент не «дергался» */
     body, html { margin:0; padding:0; height:100%; }
     main { scroll-behavior: smooth; }
   </style>
@@ -29,17 +28,14 @@
   <header class="sticky top-0 z-50 bg-purple-900/95 backdrop-blur px-4 py-4">
     <h1 class="text-3xl font-bold">Каталог автомобилей</h1>
     <div class="mt-4 flex flex-col sm:flex-row sm:space-x-4 space-y-2 sm:space-y-0">
-      <!-- Фильтр по бренду -->
       <select id="brandFilter"
               class="w-full sm:w-1/3 bg-white/30 text-white px-4 py-2 rounded-lg appearance-none">
         <option value="">Все марки</option>
       </select>
-      <!-- Фильтр по модели -->
       <select id="modelFilter"
               class="w-full sm:w-1/3 bg-white/30 text-white px-4 py-2 rounded-lg appearance-none">
         <option value="">Все модели</option>
       </select>
-      <!-- Поиск по тексту -->
       <input id="search"
              type="text"
              placeholder="Поиск..."
@@ -53,11 +49,11 @@
   </main>
 
   <script>
-    // ВАЖНО: вставьте сюда свою ссылку CSV (Publishing → CSV)
+    // Ваша CSV-ссылка из "Публикация в интернете" (CSV)
     const CSV_URL =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?gid=0&single=true&output=csv";
 
-    // Загружаем и парсим CSV
+    // Подгружаем CSV
     Papa.parse(CSV_URL, {
       download: true,
       header: true,
@@ -68,12 +64,12 @@
         renderCards(data);
       },
       error: err => {
-        console.error("Ошибка загрузки CSV:", err);
+        console.error("Ошибка CSV:", err);
         document.getElementById("root").innerText = "Не удалось загрузить каталог.";
       }
     });
 
-    // Рендер карточек
+    // Рендерим карточки
     function renderCards(cars) {
       const root = document.getElementById("root");
       root.innerHTML = "";
@@ -85,8 +81,7 @@
         const vin   = car["VIN"];
         const title = `${car["Бренд"]} ${car["Модель"]} ${car["Модификация"]}`;
         const price = `${car["Цена"]}₸`;
-
-        // Собираем прямые URL к 5 картинкам через fileId из Google Drive:
+        // Строим массив прямых ссылок по fileId
         const urls = [
           car.photo1_id,
           car.photo2_id,
@@ -95,7 +90,6 @@
           car.photo8_id
         ].map(id => `https://drive.google.com/uc?export=view&id=${id}`);
 
-        // HTML карточки
         root.insertAdjacentHTML("beforeend", `
           <div class="bg-white/10 rounded-2xl p-4 backdrop-blur-lg flex flex-col">
             <div class="font-semibold text-lg mb-1">${title}</div>
@@ -107,18 +101,18 @@
             <div class="mt-auto flex items-center justify-between">
               <div class="text-xl font-bold">${price}</div>
               <div class="space-x-2">
-                <!-- Основная кнопка Галерея -->
+                <!-- Основное изображение -->
                 <a href="${urls[0]}"
                    data-lightbox="${vin}"
                    data-title="${title}"
                    class="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-4 py-1">
                   Фото
                 </a>
-                <!-- Скрытые ссылки на остальные 4 фото -->
+                <!-- Скрытые ссылки на оставшиеся -->
                 ${urls.slice(1).map(u =>
                   `<a href="${u}" data-lightbox="${vin}" data-title="${title}" style="display:none;"></a>`
                 ).join("")}
-                <!-- Кнопка Выбрать -->
+                <!-- Кнопка выбора -->
                 <button onclick='choose(${JSON.stringify(car)})'
                         class="bg-green-500 hover:bg-green-600 text-white rounded-full px-4 py-1">
                   Выбрать
@@ -130,31 +124,31 @@
       });
     }
 
-    // Заполнить фильтр брендов
+    // Фильтр брендов
     function populateBrandFilter(cars) {
       const bf = document.getElementById("brandFilter");
       Array.from(new Set(cars.map(c => c["Бренд"]))).sort()
            .forEach(b => bf.insertAdjacentHTML("beforeend", `<option value="${b}">${b}</option>`));
     }
 
-    // Заполнить фильтр моделей
+    // Фильтр моделей
     function populateModelFilter(brand) {
       const mf = document.getElementById("modelFilter");
       mf.innerHTML = `<option value="">Все модели</option>`;
       if (!brand) return;
       Array.from(new Set(
-        window.carsData.filter(c => c["Бренд"] === brand).map(c => c["Модель"])
+        window.carsData.filter(c=>c["Бренд"]===brand).map(c=>c["Модель"])
       )).sort().forEach(m => mf.insertAdjacentHTML("beforeend", `<option value="${m}">${m}</option>`));
     }
 
-    // Применить фильтры + поиск
+    // Применение фильтров и поиска
     function applyFilters() {
       let f = window.carsData;
       const b = document.getElementById("brandFilter").value;
       const m = document.getElementById("modelFilter").value;
       const q = document.getElementById("search").value.trim().toLowerCase();
-      if (b) f = f.filter(c => c["Бренд"] === b);
-      if (m) f = f.filter(c => c["Модель"] === m);
+      if (b) f = f.filter(c=>c["Бренд"]===b);
+      if (m) f = f.filter(c=>c["Модель"]===m);
       if (q) f = f.filter(c =>
         c["Бренд"].toLowerCase().includes(q) ||
         c["Модель"].toLowerCase().includes(q)
@@ -162,21 +156,19 @@
       renderCards(f);
     }
 
-    // Слушаем изменения фильтров
-    document.getElementById("brandFilter").addEventListener("change", e => {
+    // Слушатели
+    document.getElementById("brandFilter").addEventListener("change", e=>{
       populateModelFilter(e.target.value);
       applyFilters();
     });
     document.getElementById("modelFilter").addEventListener("change", applyFilters);
     document.getElementById("search").addEventListener("input", applyFilters);
 
-    // При выборе – шлём данные боту
+    // Отправка данных в бот
     function choose(car) {
       Telegram.WebApp.sendData(JSON.stringify(car));
       Telegram.WebApp.close();
     }
-
-    // Раскрыть WebApp на весь экран
     Telegram.WebApp.expand();
   </script>
 </body>
