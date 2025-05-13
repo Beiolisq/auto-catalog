@@ -4,14 +4,22 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Каталог авто</title>
+
+  <!-- Telegram WebApp + Tailwind + PapaParse -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
-  <link 
+
+  <!-- Lightbox2 -->
+  <link
     href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/css/lightbox.min.css"
     rel="stylesheet"
   />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/js/lightbox.min.js"></script>
+
+  <style>
+    main { scroll-behavior: smooth; }
+  </style>
 </head>
 <body class="flex flex-col h-screen bg-gradient-to-b from-purple-800 to-purple-900 text-white">
 
@@ -38,9 +46,9 @@
   </main>
 
   <script>
-    // 1) Подставьте вашу CSV-ссылку
-    const CSV_URL = 
-      "https://docs.google.com/spreadsheets/d/e/…/pub?gid=0&single=true&output=csv";
+    // 1) Подставьте сюда вашу публичную CSV-ссылку из "Публикация в Интернете"
+    const CSV_URL =
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?gid=0&single=true&output=csv";
 
     Papa.parse(CSV_URL, {
       download: true,
@@ -69,16 +77,15 @@
         const title = `${car["Бренд"]} ${car["Модель"]} ${car["Модификация"]}`;
         const price = `${car["Цена"]}₸`;
 
-        // 2) Собираем прямые URL из fileId-колонок в CSV
+        // 2) Генерируем URL-ы на Google Drive по fileId-полям
         const urls = [
-          car.photo1_id,
-          car.photo2_id,
-          car.photo4_id,
-          car.photo5_id,
-          car.photo8_id
-        ].map(id => 
-          `https://drive.google.com/uc?export=view&id=${id}`
-        );
+          car["Photo1ID"],
+          car["Photo2ID"],
+          car["Photo4ID"],
+          car["Photo5ID"],
+          car["Photo8ID"]
+        ].filter(id => id)  // пропускаем пустые
+         .map(id => `https://drive.google.com/uc?export=view&id=${id}`);
 
         root.insertAdjacentHTML("beforeend", `
           <div class="bg-white/10 rounded-2xl p-4 backdrop-blur-lg flex flex-col">
@@ -91,8 +98,8 @@
             <div class="mt-3 flex items-center justify-between">
               <div class="text-xl font-bold">${price}</div>
               <div class="space-x-2">
-                <!-- Lightbox-кнопка на первую картинку -->
-                <a href="${urls[0]}" 
+                <!-- Lightbox-кнопка -->
+                <a href="${urls[0] || '#'}" 
                    data-lightbox="${vin}" 
                    data-title="${title}" 
                    class="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-4 py-1"
@@ -115,31 +122,35 @@
 
     function populateBrandFilter(cars) {
       const bf = document.getElementById("brandFilter");
-      Array.from(new Set(cars.map(c=>c["Бренд"]))).sort()
-           .forEach(b=>bf.insertAdjacentHTML("beforeend", `<option value="${b}">${b}</option>`));
+      Array.from(new Set(cars.map(c => c["Бренд"]))).sort()
+           .forEach(b => bf.insertAdjacentHTML("beforeend", `<option value="${b}">${b}</option>`));
     }
     function populateModelFilter(brand) {
       const mf = document.getElementById("modelFilter");
       mf.innerHTML = `<option value="">Все модели</option>`;
       if (!brand) return;
       Array.from(new Set(
-        window.carsData.filter(c=>c["Бренд"]===brand).map(c=>c["Модель"])
-      )).sort().forEach(m=>mf.insertAdjacentHTML("beforeend", `<option value="${m}">${m}</option>`));
+        window.carsData
+          .filter(c => c["Бренд"] === brand)
+          .map(c => c["Модель"])
+      )).sort()
+        .forEach(m => mf.insertAdjacentHTML("beforeend", `<option value="${m}">${m}</option>`));
     }
     function applyFilters() {
       let f = window.carsData;
       const b = document.getElementById("brandFilter").value;
       const m = document.getElementById("modelFilter").value;
       const q = document.getElementById("search").value.trim().toLowerCase();
-      if (b) f = f.filter(c=>c["Бренд"]===b);
-      if (m) f = f.filter(c=>c["Модель"]===m);
-      if (q) f = f.filter(c=>
+      if (b) f = f.filter(c => c["Бренд"] === b);
+      if (m) f = f.filter(c => c["Модель"] === m);
+      if (q) f = f.filter(c =>
         c["Бренд"].toLowerCase().includes(q) ||
         c["Модель"].toLowerCase().includes(q)
       );
       renderCards(f);
     }
-    document.getElementById("brandFilter").addEventListener("change", e=>{
+
+    document.getElementById("brandFilter").addEventListener("change", e => {
       populateModelFilter(e.target.value);
       applyFilters();
     });
