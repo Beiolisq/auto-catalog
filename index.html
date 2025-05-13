@@ -12,28 +12,23 @@
 
   <style>
     main { scroll-behavior: smooth; }
-    /* Галерея-модалка */
+    /* модалка */
     #galleryModal.hidden { display: none; }
     #galleryModal {
-      display: flex;
-      position: fixed;
-      inset: 0;
+      position: fixed; inset: 0;
       background: rgba(0,0,0,0.8);
-      align-items: center;
-      justify-content: center;
-      z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
     }
     #galleryModal img {
       max-width: 90%; max-height: 90%;
       border-radius: .5rem;
-      box-shadow: 0 0 15px rgba(0,0,0,0.5);
       cursor: pointer;
     }
     #galleryClose {
       position: absolute; top: 1rem; right: 1rem;
-      font-size: 2rem; color: #fff;
-      background: transparent; border: none;
-      cursor: pointer; line-height: 1;
+      font-size: 2rem; color: #fff; background: none; border: none;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -68,20 +63,20 @@
   <script>
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?gid=0&single=true&output=csv";
 
+    // парсим CSV
     Papa.parse(CSV_URL, {
       download: true, header: true, skipEmptyLines: true,
       complete: ({ data }) => {
         window.carsData = data;
         populateBrandFilter(data);
         renderCards(data);
-        attachPhotoHandlers();  // <- вешаем клики после отрисовки
       },
-      error: err => {
-        console.error("Ошибка CSV:", err);
+      error: () => {
         document.getElementById("root").innerText = "Не удалось загрузить каталог.";
       }
     });
 
+    // отрисовка карточек
     function renderCards(cars) {
       const root = document.getElementById("root");
       root.innerHTML = "";
@@ -93,7 +88,7 @@
         const vin   = car["VIN"];
         const title = `${car["Бренд"]} ${car["Модель"]} ${car["Модификация"]}`;
         const price = `${car["Цена"]}₸`;
-        // собираем DRIVE-ссылки
+        // собираем ссылки на диске
         const urls = [1,2,4,5,8]
           .map(i => car[`Photo${i}ID`])
           .filter(id => id)
@@ -111,8 +106,8 @@
               <div class="text-xl font-bold">${price}</div>
               <div class="space-x-2">
                 <button
-                  class="photo-btn bg-blue-500 hover:bg-blue-600 text-white rounded-full px-4 py-1"
-                  data-urls='${JSON.stringify(urls)}'
+                  class="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-4 py-1"
+                  onclick='showGallery(${JSON.stringify(urls)})'
                 >Фото</button>
                 <button
                   class="bg-green-500 hover:bg-green-600 text-white rounded-full px-4 py-1"
@@ -125,41 +120,12 @@
       });
     }
 
-    function attachPhotoHandlers() {
-      document.querySelectorAll(".photo-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const urls = JSON.parse(btn.getAttribute("data-urls"));
-          showGallery(urls);
-        });
-      });
-    }
-
-    // простая галерея
-    function showGallery(urls) {
-      if (!urls.length) return;
-      let idx = 0;
-      const modal = document.getElementById("galleryModal");
-      const img   = document.getElementById("galleryImg");
-      const close = document.getElementById("galleryClose");
-
-      img.src = urls[idx];
-      modal.classList.remove("hidden");
-
-      img.onclick = () => {
-        idx = (idx + 1) % urls.length;
-        img.src = urls[idx];
-      };
-      close.onclick = e => {
-        e.stopPropagation();
-        modal.classList.add("hidden");
-      };
-    }
-
-    // остальные фильтры/поиск
+    // фильтры
     function populateBrandFilter(cars) {
       const bf = document.getElementById("brandFilter");
       Array.from(new Set(cars.map(c=>c["Бренд"]))).sort()
-           .forEach(b=> bf.insertAdjacentHTML("beforeend", `<option value="${b}">${b}</option>`));
+           .forEach(b=> bf.insertAdjacentHTML("beforeend",
+             `<option value="${b}">${b}</option>`));
     }
     function populateModelFilter(brand) {
       const mf = document.getElementById("modelFilter");
@@ -167,7 +133,8 @@
       if (!brand) return;
       Array.from(new Set(
         window.carsData.filter(c=>c["Бренд"]===brand).map(c=>c["Модель"])
-      )).sort().forEach(m=> mf.insertAdjacentHTML("beforeend", `<option value="${m}">${m}</option>`));
+      )).sort().forEach(m=> mf.insertAdjacentHTML("beforeend",
+        `<option value="${m}">${m}</option>`));
     }
     function applyFilters() {
       let f = window.carsData;
@@ -177,11 +144,10 @@
       if(b) f=f.filter(c=>c["Бренд"]===b);
       if(m) f=f.filter(c=>c["Модель"]===m);
       if(q) f=f.filter(c=>
-        c["Бренд"].toLowerCase().includes(q) ||
+        c["Бренд"].toLowerCase().includes(q)||
         c["Модель"].toLowerCase().includes(q)
       );
       renderCards(f);
-      attachPhotoHandlers();
     }
     document.getElementById("brandFilter").addEventListener("change", e=>{
       populateModelFilter(e.target.value);
@@ -189,6 +155,27 @@
     });
     document.getElementById("modelFilter").addEventListener("change", applyFilters);
     document.getElementById("search").addEventListener("input", applyFilters);
+
+    // галерея
+    function showGallery(urls) {
+      if (!urls.length) return;
+      let idx = 0;
+      const modal = document.getElementById("galleryModal");
+      const img   = document.getElementById("galleryImg");
+      const btn   = document.getElementById("galleryClose");
+      img.src = urls[idx];
+      modal.classList.remove("hidden");
+      // листать по клику на картинку
+      img.onclick = () => {
+        idx = (idx + 1) % urls.length;
+        img.src = urls[idx];
+      };
+      // закрыть
+      btn.onclick = e => {
+        e.stopPropagation();
+        modal.classList.add("hidden");
+      };
+    }
 
     function choose(car) {
       Telegram.WebApp.sendData(JSON.stringify(car));
