@@ -57,7 +57,8 @@
 
   <script>
     // Вставьте сюда вашу ссылку из "Опубликовать в интернете → CSV"
-    const CSV_URL = "<https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?output=csv>";
+    const CSV_URL = "<https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?gid=0&single=true&output=csv
+>";
 
     Papa.parse(CSV_URL, {
       download: true, header: true, skipEmptyLines: true,
