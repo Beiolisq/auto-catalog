@@ -61,51 +61,58 @@
   </div>
 
   <script>
-    // ваша публичная CSV-ссылка
-    const CSV_URL = `https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?gid=0&single=true&output=csv`;
-    // ваш cloud name из Cloudinary
-    const CLOUD = 'dwx67swky';
+    // 1) Ваша CSV-ссылка из "Публикация в интернете"
+    const CSV_URL =
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?gid=0&single=true&output=csv";
+    // 2) Ваш Cloudinary cloud name
+    const CLOUD = "dwx67swky";
 
+    // Парсим CSV
     Papa.parse(CSV_URL, {
-      download: true, header: true, skipEmptyLines: true,
+      download: true,
+      header: true,
+      skipEmptyLines: true,
       complete: ({ data }) => {
         window.carsData = data;
         populateBrandFilter(data);
         renderCards(data);
       },
-      error: () => document.getElementById("root").innerText = "Не удалось загрузить каталог."
+      error: () => {
+        document.getElementById("root").innerText = "Не удалось загрузить каталог.";
+      }
     });
 
+    // Рендер карточек
     function renderCards(cars) {
       const root = document.getElementById("root");
-      root.innerHTML = '';
+      root.innerHTML = "";
       if (!cars.length) {
         root.innerHTML = `<p class="col-span-full text-center opacity-70">Ничего не найдено.</p>`;
         return;
       }
       cars.forEach(car => {
-        const vin   = car['VIN'];
-        const title = `${car['Бренд']} ${car['Модель']} ${car['Модификация']||''}`;
-        const price = `${car['Цена']}₸`;
+        const vin   = car["VIN"];
+        const title = `${car["Бренд"]} ${car["Модель"]} ${car["Модификация"]||""}`;
+        const price = `${car["Цена"]}₸`;
 
-        // 1) строим прямые Google Drive URL-ы
+        // a) Google Drive download URLs
         const driveUrls = [1,2,4,5,8]
           .map(i => car[`Photo${i}ID`])
           .filter(id => id)
-          .map(id => `https://drive.google.com/uc?export=view&id=${id}`);
+          .map(id => `https://drive.google.com/uc?export=download&id=${id}`);
 
-        // 2) оборачиваем их в Cloudinary fetch (авто-оптимизация)
-        const urls = driveUrls.map(u=>
-          `https://res.cloudinary.com/${CLOUD}/image/fetch/f_auto,q_auto/${encodeURIComponent(u)}`
+        // b) Cloudinary fetch без encodeURIComponent
+        const urls = driveUrls.map(u =>
+          `https://res.cloudinary.com/${CLOUD}/image/fetch/f_auto,q_auto/${u}`
         );
 
-        root.insertAdjacentHTML('beforeend', `
+        root.insertAdjacentHTML("beforeend", `
           <div class="bg-white/10 rounded-2xl p-4 backdrop-blur-lg flex flex-col">
             <div class="font-semibold text-lg mb-2">${title}</div>
             <div class="flex-1 text-sm opacity-75 mb-2">
-              Цвет: <span class="font-medium">${car['Цвет']}</span><br/>
-              Год: <span class="font-medium">${car['Год выпуска']}</span><br/>
-              Пробег: <span class="font-medium">${car['Пробег']} км</span>
+              Цвет: <span class="font-medium">${car["Цвет"]}</span><br/>
+              Год: <span class="font-medium">${car["Год выпуска"]}</span><br/>
+              Пробег: <span class="font-medium">${car["Пробег"]} км</span>
             </div>
             <div class="mt-3 flex items-center justify-between">
               <div class="text-xl font-bold">${price}</div>
@@ -125,51 +132,59 @@
       });
     }
 
+    // Заполнение фильтра брендов
     function populateBrandFilter(cars) {
       const bf = document.getElementById("brandFilter");
-      Array.from(new Set(cars.map(c=>c['Бренд'])))
-           .sort()
-           .forEach(b => bf.insertAdjacentHTML('beforeend', `<option value="${b}">${b}</option>`));
+      Array.from(new Set(cars.map(c => c["Бренд"]))).sort()
+        .forEach(b => bf.insertAdjacentHTML(
+          "beforeend",
+          `<option value="${b}">${b}</option>`
+        ));
     }
+    // Заполнение фильтра моделей
     function populateModelFilter(brand) {
       const mf = document.getElementById("modelFilter");
       mf.innerHTML = `<option value="">Все модели</option>`;
       if (!brand) return;
       Array.from(new Set(
-        window.carsData.filter(c=>c['Бренд']===brand).map(c=>c['Модель'])
-      )).sort()
-        .forEach(m => mf.insertAdjacentHTML('beforeend', `<option value="${m}">${m}</option>`));
+        window.carsData.filter(c => c["Бренд"] === brand).map(c => c["Модель"])
+      )).sort().forEach(m => mf.insertAdjacentHTML(
+        "beforeend",
+        `<option value="${m}">${m}</option>`
+      ));
     }
+    // Применение всех фильтров и поиска
     function applyFilters() {
       let f = window.carsData;
       const b = document.getElementById("brandFilter").value;
       const m = document.getElementById("modelFilter").value;
       const q = document.getElementById("search").value.trim().toLowerCase();
-      if (b) f = f.filter(c=>c['Бренд']===b);
-      if (m) f = f.filter(c=>c['Модель']===m);
-      if (q) f = f.filter(c=>
-        c['Бренд'].toLowerCase().includes(q) ||
-        c['Модель'].toLowerCase().includes(q)
+      if (b) f = f.filter(c => c["Бренд"] === b);
+      if (m) f = f.filter(c => c["Модель"] === m);
+      if (q) f = f.filter(c =>
+        c["Бренд"].toLowerCase().includes(q) ||
+        c["Модель"].toLowerCase().includes(q)
       );
       renderCards(f);
     }
-    document.getElementById("brandFilter").addEventListener("change", e=>{
-      populateModelFilter(e.target.value); applyFilters();
+    document.getElementById("brandFilter").addEventListener("change", e => {
+      populateModelFilter(e.target.value);
+      applyFilters();
     });
     document.getElementById("modelFilter").addEventListener("change", applyFilters);
     document.getElementById("search").addEventListener("input", applyFilters);
 
-    // галерея-модалка
+    // Галерея-модалка
     function showGallery(urls) {
       if (!urls.length) return;
-      let idx = 0;
+      let idx   = 0;
       const modal = document.getElementById("galleryModal");
       const img   = document.getElementById("galleryImg");
       const btn   = document.getElementById("galleryClose");
       img.src = urls[idx];
       modal.classList.remove("hidden");
       img.onclick = () => {
-        idx = (idx + 1)%urls.length;
+        idx = (idx + 1) % urls.length;
         img.src = urls[idx];
       };
       btn.onclick = e => {
@@ -178,10 +193,13 @@
       };
     }
 
+    // Выбор автомобиля
     function choose(car) {
       Telegram.WebApp.sendData(JSON.stringify(car));
       Telegram.WebApp.close();
     }
+
+    // Раскрываем WebApp на весь экран
     Telegram.WebApp.expand();
   </script>
 </body>
