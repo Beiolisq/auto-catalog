@@ -4,15 +4,11 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Каталог авто</title>
-
-  <!-- Telegram WebApp + Tailwind + PapaParse -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
-
   <style>
     main { scroll-behavior: smooth; }
-    /* модалка */
     #galleryModal.hidden { display: none; }
     #galleryModal {
       position: fixed; inset: 0;
@@ -22,8 +18,7 @@
     }
     #galleryModal img {
       max-width: 90%; max-height: 90%;
-      border-radius: .5rem;
-      cursor: pointer;
+      border-radius: .5rem; cursor: pointer;
     }
     #galleryClose {
       position: absolute; top: 1rem; right: 1rem;
@@ -33,6 +28,7 @@
   </style>
 </head>
 <body class="flex flex-col h-screen bg-gradient-to-b from-purple-800 to-purple-900 text-white">
+
   <!-- HEADER -->
   <header class="sticky top-0 bg-purple-900/90 backdrop-blur px-4 py-4 z-40">
     <h1 class="text-3xl font-bold">Каталог автомобилей</h1>
@@ -60,10 +56,8 @@
   </div>
 
   <script>
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/…/pub?gid=0&single=true&output=csv";
-    // ваш Cloudinary (пример dwx67swky)
-    const CLOUD_NAME = "dwx67swky";
-    const BASE_CLOUD_URL = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload`;
+    // Вставьте сюда вашу ссылку из "Опубликовать в интернете → CSV"
+    const CSV_URL = "<https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?output=csv>";
 
     Papa.parse(CSV_URL, {
       download: true, header: true, skipEmptyLines: true,
@@ -72,7 +66,8 @@
         populateBrandFilter(data);
         renderCards(data);
       },
-      error: () => {
+      error: err => {
+        console.error("Ошибка CSV:", err);
         document.getElementById("root").innerText = "Не удалось загрузить каталог.";
       }
     });
@@ -88,12 +83,10 @@
         const vin   = car["VIN"];
         const title = `${car["Бренд"]} ${car["Модель"]} ${car["Модификация"]}`;
         const price = `${car["Цена"]}₸`;
-
-        // собираем URL только нужных фото
-        const urls = [1,2,4,5,8]
-          .map(i => `${BASE_CLOUD_URL}/v1/car_photos/${vin}/${i}.jpg`);
-
-        // генерим карточку
+        // предполагаем, что локально URL фото строятся по VIN
+        const urls = [1,2,4,5,8].map(i =>
+          `/car_photos/${vin}/${i}.jpg`
+        );
         root.insertAdjacentHTML("beforeend", `
           <div class="bg-white/10 rounded-2xl p-4 backdrop-blur-lg flex flex-col">
             <div class="font-semibold text-lg mb-2">${title}</div>
@@ -105,7 +98,6 @@
             <div class="mt-3 flex items-center justify-between">
               <div class="text-xl font-bold">${price}</div>
               <div class="space-x-2">
-                <!-- data-urls хранит JSON массива -->
                 <button
                   class="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-4 py-1"
                   data-urls='${JSON.stringify(urls)}'
@@ -122,11 +114,12 @@
       });
     }
 
-    // фильтры
     function populateBrandFilter(cars) {
       const bf = document.getElementById("brandFilter");
       Array.from(new Set(cars.map(c=>c["Бренд"]))).sort()
-        .forEach(b => bf.insertAdjacentHTML("beforeend", `<option value="${b}">${b}</option>`));
+        .forEach(b => bf.insertAdjacentHTML("beforeend",
+          `<option value="${b}">${b}</option>`
+        ));
     }
     function populateModelFilter(brand) {
       const mf = document.getElementById("modelFilter");
@@ -134,9 +127,9 @@
       if (!brand) return;
       Array.from(new Set(
         window.carsData.filter(c=>c["Бренд"]===brand).map(c=>c["Модель"])
-      )).sort().forEach(m=>{
-        mf.insertAdjacentHTML("beforeend", `<option value="${m}">${m}</option>`);
-      });
+      )).sort().forEach(m=> mf.insertAdjacentHTML("beforeend",
+        `<option value="${m}">${m}</option>`
+      ));
     }
     function applyFilters() {
       let f = window.carsData;
@@ -146,7 +139,7 @@
       if(b) f=f.filter(c=>c["Бренд"]===b);
       if(m) f=f.filter(c=>c["Модель"]===m);
       if(q) f=f.filter(c=>
-        c["Бренд"].toLowerCase().includes(q) ||
+        c["Бренд"].toLowerCase().includes(q)||
         c["Модель"].toLowerCase().includes(q)
       );
       renderCards(f);
@@ -157,33 +150,23 @@
     document.getElementById("modelFilter").addEventListener("change", applyFilters);
     document.getElementById("search").addEventListener("input", applyFilters);
 
-    // открываем галерею, получая URL из data-urls
     function showGalleryFromBtn(btn) {
-      const urls = JSON.parse(btn.getAttribute("data-urls") || "[]");
+      const urls = JSON.parse(btn.getAttribute("data-urls")||"[]");
       showGallery(urls);
     }
     function showGallery(urls) {
       if (!urls.length) return;
-      let idx = 0;
-      const modal = document.getElementById("galleryModal");
-      const img   = document.getElementById("galleryImg");
-      const btn   = document.getElementById("galleryClose");
-      img.src = urls[idx];
+      let idx=0;
+      const modal=document.getElementById("galleryModal");
+      const img=document.getElementById("galleryImg");
+      const btn=document.getElementById("galleryClose");
+      img.src=urls[idx];
       modal.classList.remove("hidden");
-      // переключаем по клику
-      img.onclick = ()=> {
-        idx = (idx+1) % urls.length;
-        img.src = urls[idx];
-      };
-      // закрываем
-      btn.onclick = e => {
-        e.stopPropagation();
-        modal.classList.add("hidden");
-      };
+      img.onclick=()=>{ idx=(idx+1)%urls.length; img.src=urls[idx]; };
+      btn.onclick=e=>{ e.stopPropagation(); modal.classList.add("hidden"); };
     }
 
-    // выбор и отправка в бота
-    function choose(car) {
+    function choose(car){
       Telegram.WebApp.sendData(JSON.stringify(car));
       Telegram.WebApp.close();
     }
