@@ -4,11 +4,16 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Каталог авто</title>
+
+  <!-- Telegram WebApp + Tailwind + PapaParse -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+
   <style>
+    /* плавный скролл */
     main { scroll-behavior: smooth; }
+    /* модалка */
     #galleryModal.hidden { display: none; }
     #galleryModal {
       position: fixed; inset: 0;
@@ -22,8 +27,8 @@
     }
     #galleryClose {
       position: absolute; top: 1rem; right: 1rem;
-      font-size: 2rem; color: #fff; background: none; border: none;
-      cursor: pointer;
+      font-size: 2rem; color: #fff;
+      background: none; border: none; cursor: pointer;
     }
   </style>
 </head>
@@ -33,14 +38,14 @@
   <header class="sticky top-0 bg-purple-900/90 backdrop-blur px-4 py-4 z-40">
     <h1 class="text-3xl font-bold">Каталог автомобилей</h1>
     <div class="mt-4 flex flex-col sm:flex-row sm:space-x-4 space-y-2 sm:space-y-0">
-      <select id="brandFilter" class="w-full sm:w-1/3 bg-white/30 text-white px-4 py-2 rounded-lg">
+      <select id="brandFilter" class="w-full sm:w-1/3 bg-white/20 text-white px-4 py-2 rounded-lg">
         <option value="">Все марки</option>
       </select>
-      <select id="modelFilter" class="w-full sm:w-1/3 bg-white/30 text-white px-4 py-2 rounded-lg">
+      <select id="modelFilter" class="w-full sm:w-1/3 bg-white/20 text-white px-4 py-2 rounded-lg">
         <option value="">Все модели</option>
       </select>
       <input id="search" type="text" placeholder="Поиск..."
-             class="w-full sm:flex-1 bg-white/30 text-white px-4 py-2 rounded-lg"/>
+             class="w-full sm:flex-1 bg-white/20 text-white px-4 py-2 rounded-lg"/>
     </div>
   </header>
 
@@ -56,58 +61,86 @@
   </div>
 
   <script>
-    // Вставьте сюда вашу ссылку из "Опубликовать в интернете → CSV"
-    const CSV_URL = "<https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?gid=0&single=true&output=csv
->";
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?gid=0&single=true&output=csv";
+    const CLOUD = "dp9qa4wva";
 
     Papa.parse(CSV_URL, {
-      download: true, header: true, skipEmptyLines: true,
+      download: true,
+      header: true,
+      skipEmptyLines: true,
       complete: ({ data }) => {
         window.carsData = data;
-        populateBrandFilter(data);
+        initFilters(data);
         renderCards(data);
       },
-      error: err => {
-        console.error("Ошибка CSV:", err);
+      error: () => {
         document.getElementById("root").innerText = "Не удалось загрузить каталог.";
       }
     });
+
+    function initFilters(cars) {
+      const bf = document.getElementById("brandFilter");
+      const mf = document.getElementById("modelFilter");
+      Array.from(new Set(cars.map(c=>c["Бренд"]))).sort()
+        .forEach(b => bf.insertAdjacentHTML("beforeend", `<option>${b}</option>`));
+      bf.addEventListener("change", ()=>{
+        mf.innerHTML = `<option value="">Все модели</option>`;
+        const brand = bf.value;
+        if (brand) {
+          Array.from(new Set(
+            window.carsData.filter(c=>c["Бренд"]===brand).map(c=>c["Модель"])
+          )).sort().forEach(m=> mf.insertAdjacentHTML("beforeend", `<option>${m}</option>`));
+        }
+        applyFilters();
+      });
+      mf.addEventListener("change", applyFilters);
+      document.getElementById("search").addEventListener("input", applyFilters);
+    }
+
+    function applyFilters() {
+      let f = window.carsData;
+      const b = document.getElementById("brandFilter").value;
+      const m = document.getElementById("modelFilter").value;
+      const q = document.getElementById("search").value.trim().toLowerCase();
+      if (b) f=f.filter(c=>c["Бренд"]===b);
+      if (m) f=f.filter(c=>c["Модель"]===m);
+      if (q) f=f.filter(c=>
+        c["Бренд"].toLowerCase().includes(q) ||
+        c["Модель"].toLowerCase().includes(q)
+      );
+      renderCards(f);
+    }
 
     function renderCards(cars) {
       const root = document.getElementById("root");
       root.innerHTML = "";
       if (!cars.length) {
-        root.innerHTML = `<p class="col-span-full text-center opacity-70">Ничего не найдено.</p>`;
-        return;
+        return root.innerHTML = `<p class="col-span-full text-center opacity-70">Ничего не найдено.</p>`;
       }
       cars.forEach(car => {
-        const vin   = car["VIN"];
+        const vin = car["VIN"];
         const title = `${car["Бренд"]} ${car["Модель"]} ${car["Модификация"]}`;
         const price = `${car["Цена"]}₸`;
-        // предполагаем, что локально URL фото строятся по VIN
-        const urls = [1,2,4,5,8].map(i =>
-          `/car_photos/${vin}/${i}.jpg`
-        );
+
+        // пять нужных фото
+        const urls = [1,2,4,5,8]
+          .map(i => `https://res.cloudinary.com/${CLOUD}/image/upload/${vin}/${i}.jpg`);
+
         root.insertAdjacentHTML("beforeend", `
           <div class="bg-white/10 rounded-2xl p-4 backdrop-blur-lg flex flex-col">
-            <div class="font-semibold text-lg mb-2">${title}</div>
-            <div class="flex-1 text-sm opacity-75 mb-2">
-              Цвет: <span class="font-medium">${car["Цвет"]}</span><br/>
-              Год: <span class="font-medium">${car["Год выпуска"]}</span><br/>
+            <div class="font-semibold text-lg mb-1">${title}</div>
+            <div class="flex-1 text-sm opacity-75">
+              Цвет: <span class="font-medium">${car["Цвет"]}</span><br>
+              Год: <span class="font-medium">${car["Год выпуска"]}</span><br>
               Пробег: <span class="font-medium">${car["Пробег"]} км</span>
             </div>
             <div class="mt-3 flex items-center justify-between">
               <div class="text-xl font-bold">${price}</div>
               <div class="space-x-2">
-                <button
-                  class="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-4 py-1"
-                  data-urls='${JSON.stringify(urls)}'
-                  onclick="showGalleryFromBtn(this)"
-                >Фото</button>
-                <button
-                  class="bg-green-500 hover:bg-green-600 text-white rounded-full px-4 py-1"
-                  onclick='choose(${JSON.stringify(car)})'
-                >Выбрать</button>
+                <button class="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-4 py-1"
+                        onclick='openGallery(${JSON.stringify(urls)})'>Фото</button>
+                <button class="bg-green-500 hover:bg-green-600 text-white rounded-full px-4 py-1"
+                        onclick='choose(${JSON.stringify(car)})'>Выбрать</button>
               </div>
             </div>
           </div>
@@ -115,59 +148,20 @@
       });
     }
 
-    function populateBrandFilter(cars) {
-      const bf = document.getElementById("brandFilter");
-      Array.from(new Set(cars.map(c=>c["Бренд"]))).sort()
-        .forEach(b => bf.insertAdjacentHTML("beforeend",
-          `<option value="${b}">${b}</option>`
-        ));
-    }
-    function populateModelFilter(brand) {
-      const mf = document.getElementById("modelFilter");
-      mf.innerHTML = `<option value="">Все модели</option>`;
-      if (!brand) return;
-      Array.from(new Set(
-        window.carsData.filter(c=>c["Бренд"]===brand).map(c=>c["Модель"])
-      )).sort().forEach(m=> mf.insertAdjacentHTML("beforeend",
-        `<option value="${m}">${m}</option>`
-      ));
-    }
-    function applyFilters() {
-      let f = window.carsData;
-      const b=document.getElementById("brandFilter").value;
-      const m=document.getElementById("modelFilter").value;
-      const q=document.getElementById("search").value.trim().toLowerCase();
-      if(b) f=f.filter(c=>c["Бренд"]===b);
-      if(m) f=f.filter(c=>c["Модель"]===m);
-      if(q) f=f.filter(c=>
-        c["Бренд"].toLowerCase().includes(q)||
-        c["Модель"].toLowerCase().includes(q)
-      );
-      renderCards(f);
-    }
-    document.getElementById("brandFilter").addEventListener("change", e=>{
-      populateModelFilter(e.target.value); applyFilters();
-    });
-    document.getElementById("modelFilter").addEventListener("change", applyFilters);
-    document.getElementById("search").addEventListener("input", applyFilters);
-
-    function showGalleryFromBtn(btn) {
-      const urls = JSON.parse(btn.getAttribute("data-urls")||"[]");
-      showGallery(urls);
-    }
-    function showGallery(urls) {
+    // галерея-модалка
+    function openGallery(urls) {
       if (!urls.length) return;
-      let idx=0;
-      const modal=document.getElementById("galleryModal");
-      const img=document.getElementById("galleryImg");
-      const btn=document.getElementById("galleryClose");
-      img.src=urls[idx];
+      let idx = 0;
+      const modal = document.getElementById("galleryModal");
+      const img   = document.getElementById("galleryImg");
+      const cls   = document.getElementById("galleryClose");
+      img.src = urls[idx];
       modal.classList.remove("hidden");
-      img.onclick=()=>{ idx=(idx+1)%urls.length; img.src=urls[idx]; };
-      btn.onclick=e=>{ e.stopPropagation(); modal.classList.add("hidden"); };
+      img.onclick = ()=>{ idx=(idx+1)%urls.length; img.src=urls[idx]; };
+      cls.onclick = e=>{ e.stopPropagation(); modal.classList.add("hidden"); };
     }
 
-    function choose(car){
+    function choose(car) {
       Telegram.WebApp.sendData(JSON.stringify(car));
       Telegram.WebApp.close();
     }
