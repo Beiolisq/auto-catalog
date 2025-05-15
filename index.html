@@ -12,7 +12,7 @@
 
   <style>
     main { scroll-behavior: smooth; }
-    /* модалка */
+    /* Модалка */
     #galleryModal.hidden { display: none; }
     #galleryModal {
       position: fixed; inset: 0;
@@ -61,14 +61,20 @@
   </div>
 
   <script>
-    // 1) Ваша публичная CSV-ссылка:
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?gid=0&single=true&output=csv";
-    // 2) Ваш Cloudinary cloud_name:
-    const CLOUD_NAME = "dp9qa4wva";
+    // Сюда вставьте ссылку CSV из "Файл → Публикация в интернете"
+    const CSV_URL =
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMMDXrqnU39blIyCstu4yexPQRnya5LoxTyrh8NF3SqDxjN_sSu2xIK1-XUbJ8hPAdA8nfSnko-Ykw/pub?gid=0&single=true&output=csv";
 
-    // парсим CSV
+    // Утилита для генерации прямой ссылки просмотра с Google Drive
+    function driveViewURL(fileId) {
+      return `https://drive.google.com/uc?export=view&id=${fileId}`;
+    }
+
+    // Парсим CSV
     Papa.parse(CSV_URL, {
-      download: true, header: true, skipEmptyLines: true,
+      download: true,
+      header: true,
+      skipEmptyLines: true,
       complete: ({ data }) => {
         window.carsData = data;
         populateBrandFilter(data);
@@ -79,26 +85,28 @@
       }
     });
 
-    // рендер карточек
+    // Рендер карточек
     function renderCards(cars) {
       const root = document.getElementById("root");
       root.innerHTML = "";
+
       if (!cars.length) {
         root.innerHTML = `<p class="col-span-full text-center opacity-70">Ничего не найдено.</p>`;
         return;
       }
+
       cars.forEach(car => {
         const vin   = car["VIN"];
         const title = `${car["Бренд"]} ${car["Модель"]} ${car["Модификация"]}`;
         const price = `${car["Цена"]}₸`;
-        // собираем URL-ы из Cloudinary
-        const urls = [1,2,4,5,8]
+
+        // Собираем только ID из столбцов Photo1ID..Photo8ID
+        const ids = [1,2,4,5,8]
           .map(i => car[`Photo${i}ID`])
-          .filter(id => id)
-          .map(id =>
-            // публичный URL «без версии» — Cloudinary сам перенаправит на реальный файл
-            `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/car_photos/${vin}/${i}.jpg`
-          );
+          .filter(id => id);
+
+        // Мапим их в полные URL
+        const urls = ids.map(driveViewURL);
 
         root.insertAdjacentHTML("beforeend", `
           <div class="bg-white/10 rounded-2xl p-4 backdrop-blur-lg flex flex-col">
@@ -126,33 +134,42 @@
       });
     }
 
-    // фильтры
+    // Фильтры
     function populateBrandFilter(cars) {
       const bf = document.getElementById("brandFilter");
-      Array.from(new Set(cars.map(c => c["Бренд"]))).sort()
-           .forEach(b => bf.insertAdjacentHTML("beforeend", `<option value="${b}">${b}</option>`));
+      Array.from(new Set(cars.map(c=>c["Бренд"]))).sort()
+           .forEach(b => bf.insertAdjacentHTML("beforeend",
+             `<option value="${b}">${b}</option>`
+           ));
     }
     function populateModelFilter(brand) {
       const mf = document.getElementById("modelFilter");
       mf.innerHTML = `<option value="">Все модели</option>`;
       if (!brand) return;
       Array.from(new Set(
-        window.carsData.filter(c => c["Бренд"]===brand).map(c => c["Модель"])
-      )).sort().forEach(m => mf.insertAdjacentHTML("beforeend", `<option value="${m}">${m}</option>`));
+        window.carsData
+          .filter(c => c["Бренд"]===brand)
+          .map(c => c["Модель"])
+      )).sort().forEach(m => mf.insertAdjacentHTML("beforeend",
+        `<option value="${m}">${m}</option>`
+      ));
     }
     function applyFilters() {
-      let f = window.carsData;
+      let filtered = window.carsData;
       const b = document.getElementById("brandFilter").value;
       const m = document.getElementById("modelFilter").value;
       const q = document.getElementById("search").value.trim().toLowerCase();
-      if (b) f = f.filter(c => c["Бренд"]===b);
-      if (m) f = f.filter(c => c["Модель"]===m);
-      if (q) f = f.filter(c =>
+
+      if (b) filtered = filtered.filter(c=>c["Бренд"]===b);
+      if (m) filtered = filtered.filter(c=>c["Модель"]===m);
+      if (q) filtered = filtered.filter(c =>
         c["Бренд"].toLowerCase().includes(q) ||
         c["Модель"].toLowerCase().includes(q)
       );
-      renderCards(f);
+
+      renderCards(filtered);
     }
+
     document.getElementById("brandFilter").addEventListener("change", e=>{
       populateModelFilter(e.target.value);
       applyFilters();
@@ -160,32 +177,34 @@
     document.getElementById("modelFilter").addEventListener("change", applyFilters);
     document.getElementById("search").addEventListener("input", applyFilters);
 
-    // модалка-галерея
+    // Модалка галереи
     function showGallery(urls) {
       if (!urls.length) return;
-      let idx = 0;
-      const modal = document.getElementById("galleryModal");
-      const img   = document.getElementById("galleryImg");
-      const btn   = document.getElementById("galleryClose");
-      img.src = urls[idx];
-      modal.classList.remove("hidden");
+      let idx   = 0;
+      const mod  = document.getElementById("galleryModal");
+      const img  = document.getElementById("galleryImg");
+      const btn  = document.getElementById("galleryClose");
 
-      // кликом по картинке — следующий кадр
+      img.src = urls[idx];
+      mod.classList.remove("hidden");
+
       img.onclick = () => {
         idx = (idx + 1) % urls.length;
         img.src = urls[idx];
       };
-      // закрыть
       btn.onclick = e => {
         e.stopPropagation();
-        modal.classList.add("hidden");
+        mod.classList.add("hidden");
       };
     }
 
+    // Выбор автомобиля
     function choose(car) {
       Telegram.WebApp.sendData(JSON.stringify(car));
       Telegram.WebApp.close();
     }
+
+    // Раскрыть WebApp
     Telegram.WebApp.expand();
   </script>
 </body>
